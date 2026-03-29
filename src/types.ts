@@ -6,8 +6,6 @@ export interface Color {
 
 export interface Region {
   colorIndex: number;
-  /** Flat pixel indices within the image */
-  pixels: number[];
   centroidX: number;
   centroidY: number;
   area: number;
@@ -24,6 +22,8 @@ export interface ProcessResult {
 
 export type Algorithm = 'kmeans' | 'mediancut';
 
+export type FontSize = 8 | 10 | 12 | 14;
+
 export interface Settings {
   numColors: number;
   algorithm: Algorithm;
@@ -33,4 +33,12 @@ export interface Settings {
   minRegionSize: number;
   /** Show palette colours in preview vs pure line-art */
   showColors: boolean;
+  /** Border line thickness in pixels (1–8) */
+  borderThickness: number;
+  /** CSS hex colour for region borders, e.g. '#cccccc' */
+  borderColor: string;
+  /** Fixed font size for number labels */
+  fontSize: FontSize;
+  /** CSS hex colour for number labels */
+  numberColor: string;
 }

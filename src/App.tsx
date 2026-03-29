@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ProcessResult, Settings } from './types';
 import { processImage } from './lib/processor';
+import { renderPaintNumbers, createColorReferenceCanvas } from './lib/render';
 import DropZone from './components/DropZone';
 import Controls from './components/Controls';
 import PaintCanvas from './components/PaintCanvas';
@@ -12,6 +13,10 @@ const DEFAULT_SETTINGS: Settings = {
   blur: 4,
   minRegionSize: 80,
   showColors: false,
+  borderThickness: 1,
+  borderColor: '#cccccc',
+  fontSize: 10,
+  numberColor: '#888888',
 };
 
 /** Extract raw ImageData from an HTMLImageElement via an offscreen canvas. */
@@ -19,9 +24,16 @@ function imageToData(img: HTMLImageElement): ImageData {
   const canvas = document.createElement('canvas');
   canvas.width  = img.naturalWidth;
   canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(img, 0, 0);
-  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  canvas.getContext('2d')!.drawImage(img, 0, 0);
+  return canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+/** Trigger a browser download of `canvas` as a PNG. */
+function downloadCanvas(canvas: HTMLCanvasElement, filename: string) {
+  const a = document.createElement('a');
+  a.href     = canvas.toDataURL('image/png');
+  a.download = filename;
+  a.click();
 }
 
 export default function App() {
@@ -32,32 +44,25 @@ export default function App() {
   const [processing, setProcessing] = useState(false);
   const [error, setError]           = useState<string>('');
 
-  // Debounce handle
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // For the download callback
-  const getCanvasRef = useRef<(() => HTMLCanvasElement | null) | null>(null);
+  const timerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const getCanvasRef  = useRef<(() => HTMLCanvasElement | null) | null>(null);
 
   // ── Load image ──────────────────────────────────────────────────────────────
   function handleImage(img: HTMLImageElement) {
-    const src = img.src; // already an object URL (revoked after load — store data instead)
-    // Re-draw onto canvas to get a stable URL for the thumbnail
     const thumb = document.createElement('canvas');
     thumb.width  = img.naturalWidth;
     thumb.height = img.naturalHeight;
     thumb.getContext('2d')!.drawImage(img, 0, 0);
     setImageSrc(thumb.toDataURL('image/jpeg', 0.6));
 
-    const data = imageToData(img);
-    setImageData(data);
+    setImageData(imageToData(img));
     setResult(null);
     setError('');
-    void src; // suppress lint warning
   }
 
-  // ── Run processor whenever imageData or settings change (debounced 350 ms) ─
+  // ── Process on settings/image change (debounced 350 ms) ────────────────────
   useEffect(() => {
     if (!imageData) return;
-
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       setProcessing(true);
@@ -71,23 +76,37 @@ export default function App() {
         setProcessing(false);
       }
     }, 350);
-
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [imageData, settings]);
 
-  // ── Download handler ────────────────────────────────────────────────────────
+  // ── Export: line-art (current showColors state) ─────────────────────────────
   function handleDownload() {
     const canvas = getCanvasRef.current?.();
     if (!canvas) return;
-    const a = document.createElement('a');
-    a.href     = canvas.toDataURL('image/png');
-    a.download = 'paint-by-numbers.png';
-    a.click();
+    downloadCanvas(canvas, 'paint-by-numbers.png');
   }
 
-  const handleGetCanvas = useCallback((fn: () => HTMLCanvasElement | null) => {
-    getCanvasRef.current = fn;
-  }, []);
+  // ── Export: forced colour fill ──────────────────────────────────────────────
+  function handleDownloadWithColor() {
+    if (!result) return;
+    const tmp = document.createElement('canvas');
+    tmp.width  = result.width;
+    tmp.height = result.height;
+    const ctx  = tmp.getContext('2d')!;
+    renderPaintNumbers(ctx, result, { ...settings, showColors: true });
+    downloadCanvas(tmp, 'paint-by-numbers-colour.png');
+  }
+
+  // ── Export: colour reference card ───────────────────────────────────────────
+  function handleDownloadColorRef() {
+    if (!result) return;
+    downloadCanvas(createColorReferenceCanvas(result.palette), 'paint-colour-reference.png');
+  }
+
+  const handleRegisterCanvas = useCallback(
+    (fn: () => HTMLCanvasElement | null) => { getCanvasRef.current = fn; },
+    [],
+  );
 
   // ── Reset ───────────────────────────────────────────────────────────────────
   function handleReset() {
@@ -116,10 +135,11 @@ export default function App() {
             <div className="upload-tips">
               <h3>Tips for best results</h3>
               <ul>
-                <li>Use high-contrast photos with clear subjects</li>
-                <li>Landscapes and portraits work especially well</li>
+                <li>High-contrast photos with clear subjects work best</li>
+                <li>Landscapes and portraits are ideal</li>
                 <li>Start with 6–10 colours for a manageable painting</li>
                 <li>Increase Simplification if there are too many tiny regions</li>
+                <li>Photos are scaled up to 4K for output — originals are never uploaded</li>
               </ul>
             </div>
           </div>
@@ -141,7 +161,8 @@ export default function App() {
 
               {processing && !result && (
                 <div className="placeholder">
-                  <span className="spinner spinner--large" /> Processing image…
+                  <span className="spinner spinner--large" />
+                  Processing image at up to 4K…
                 </div>
               )}
 
@@ -153,16 +174,29 @@ export default function App() {
                       {result.palette.length} colours &nbsp;·&nbsp;
                       {result.regions.length.toLocaleString()} regions
                     </div>
-                    <button className="btn btn--primary" onClick={handleDownload}>
-                      Download PNG
-                    </button>
+                    <div className="canvas-toolbar__actions">
+                      <button className="btn btn--primary" onClick={handleDownload}>
+                        Download PNG
+                      </button>
+                      <button className="btn btn--secondary" onClick={handleDownloadWithColor}>
+                        Export with colour
+                      </button>
+                      <button className="btn btn--secondary" onClick={handleDownloadColorRef}>
+                        Colour reference card
+                      </button>
+                    </div>
                   </div>
+
+                  {processing && (
+                    <div className="processing-overlay">
+                      <span className="spinner" /> Updating…
+                    </div>
+                  )}
 
                   <PaintCanvas
                     result={result}
-                    minRegionSize={settings.minRegionSize}
-                    showColors={settings.showColors}
-                    onDownload={handleGetCanvas}
+                    settings={settings}
+                    onRegisterCanvas={handleRegisterCanvas}
                   />
 
                   <ColorLegend palette={result.palette} />
@@ -181,7 +215,7 @@ export default function App() {
       </main>
 
       <footer className="app-footer">
-        All processing happens locally in your browser — no image is uploaded anywhere.
+        All processing happens locally in your browser — no image is ever uploaded.
       </footer>
     </div>
   );
