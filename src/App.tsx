@@ -125,6 +125,11 @@ export default function App() {
           <span className="app-header__logo">🎨</span>
           <h1 className="app-header__title">Paint by Numbers</h1>
           <p className="app-header__subtitle">Turn any photo into a numbered colour template</p>
+          {hasImage && (
+            <button className="btn btn--new-image" onClick={handleReset}>
+              ← New Image
+            </button>
+          )}
         </div>
       </header>
 

@@ -54,6 +54,21 @@ body {
   font-size: 13px;
   margin-left: auto;
 }
+.btn--new-image {
+  margin-left: 16px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.btn--new-image:hover { border-color: var(--accent); color: var(--accent); }
 
 .app-main {
   flex: 1;
