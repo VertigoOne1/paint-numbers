@@ -494,20 +494,36 @@ body {
   padding: 5px 10px 5px 6px;
 }
 .legend__swatch {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.1);
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.12);
   flex-shrink: 0;
 }
 .legend__num {
   font-weight: 700;
-  font-size: 13px;
-  min-width: 16px;
+  font-size: 14px;
+  min-width: 20px;
+  text-align: right;
   color: var(--text);
+  flex-shrink: 0;
+}
+.legend__labels {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.legend__name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .legend__hex {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   font-family: monospace;
 }

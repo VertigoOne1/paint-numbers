@@ -1,15 +1,9 @@
 import type { Color } from '../types';
-import { buildColorNumbers } from '../lib/render';
+import { buildColorNumbers, toHex } from '../lib/render';
+import { nearestWebColor } from '../lib/webColors';
 
 interface Props {
   palette: Color[];
-}
-
-function toHex(c: Color) {
-  return '#' +
-    c.r.toString(16).padStart(2, '0') +
-    c.g.toString(16).padStart(2, '0') +
-    c.b.toString(16).padStart(2, '0');
 }
 
 export default function ColorLegend({ palette }: Props) {
@@ -19,16 +13,23 @@ export default function ColorLegend({ palette }: Props) {
     <div className="legend">
       <h3 className="legend__title">Colour Key</h3>
       <div className="legend__grid">
-        {palette.map((color, i) => (
-          <div key={i} className="legend__item">
-            <div
-              className="legend__swatch"
-              style={{ background: toHex(color) }}
-            />
-            <span className="legend__num">{numbers[i]}</span>
-            <span className="legend__hex">{toHex(color)}</span>
-          </div>
-        ))}
+        {palette.map((color, i) => {
+          const hex = toHex(color);
+          const web = nearestWebColor(color);
+          return (
+            <div key={i} className="legend__item">
+              <div
+                className="legend__swatch"
+                style={{ background: hex }}
+              />
+              <span className="legend__num">{numbers[i]}</span>
+              <div className="legend__labels">
+                <span className="legend__name">{web.name}</span>
+                <span className="legend__hex">{hex.toUpperCase()}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
